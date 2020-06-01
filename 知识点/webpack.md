@@ -1,6 +1,6 @@
 ## webpack
 
-![webpack](/Users/cherry/Desktop/peggy-interview-groups/assets/f909858b9ce8d2393f2488d272b03b04.jpg)
+![webpack](https://github.com/zentan66/peggy-interview-groups/blob/master/assets/f909858b9ce8d2393f2488d272b03b04.jpg)
 
 ### 原理
 
