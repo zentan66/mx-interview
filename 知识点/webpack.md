@@ -16,6 +16,70 @@
 
 ### 优化
 
+**定位体积大的模块**
+
+使用`webpack-bundle-analyzer`包展现项目的体积结构
+
+通过`npm install webpack-bundle-analyzer --save-dev`安装，而后在webpack配置信息中的plugins中添加`new BundleAnalyzerPlugin()`即可
+
+**提取公共模块**
+
+通过webpack自带的`CommonsChunkPlugin`可以对项目中多次引用的模块进行提取
+
+在最新版的webpack中，该配置被转移了
+
+```javascript
+module.exports = {
+  optimization: {
+    splitChunks: {
+      chunks: 'vendor',
+      minSize: 30000,
+      minChunks: 3,
+      maxAsyncRequests: 5,
+      maxInitialRequests: 3,
+      automaticNameDelimiter: '~',
+      name: true,
+      cacheGroups: {}
+    }
+  }
+}
+```
+
+
+
+**移除不必要的文件**
+
+在项目中可能会引入一些体积比较大的库，可以通过webpack自带的两个库实现这个功能：
+
+- IgnorePlugin
+- ContextReplacementPlugin
+
+**模块化引入**
+
+在使用`lodash`这类库时，直接引用了整个库的内容，简写可以这样：
+
+```javascript
+import chain from 'lodash/chain';
+```
+
+**通过CDN引用**
+
+对于一些必要的库，又没办法进行体积优化的，可以通过外部引入的方式来减小打包文件体积
+
+```html
+<script src="https://xxx/jquery.min.js"></script>
+```
+
+引入方式
+
+```javascript
+{
+  externals: {
+    jquery: 'jquery'
+  }
+}
+```
+
 
 
 ### 文章推荐
