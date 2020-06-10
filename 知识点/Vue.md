@@ -297,3 +297,263 @@ export default {
 
 ### 动态组件&异步组件
 
+#### keep-alive
+
+在vue中可以通过`is`切换不同的组件
+
+```vue
+<component :is="componentName"></component>
+```
+
+但是切换不同的组件就会重新创建组件，有时候我们会想将组件第一次创建后的状态缓存下来，为了解决这个问题我们可以使用一个`<keep-alive>`标签将动态组件包裹：
+
+```vue
+<keep-alive>
+	<component :is="componentName"></component>
+</keep-alive>
+```
+
+**\<keep-alive\>要求被切换到的组件都有自己的名字，不论是通过组件的name选项还是局部/全局注册**
+
+#### 异步组件
+
+在大型应用中，可能需要将应用分割成小一些的代码块，并且只在需要的时候才从服务器加载一个模块
+
+```javascript
+Vue.component('async-webpack-example', function(resolve) {
+  require(['./my-async-component'], resolve)
+})
+```
+
+也可以把webpack与ES2015语法加在一起：
+
+```javascript
+Vue.component('async-webpack-example', () => import('./my-async-component'))
+```
+
+在2.3.0+新增了加载状态：
+
+```javascript
+const AsyncComponent = () => ({
+  component: import('./MyComponent.vue'),
+  // 异步组件加载时使用的组件
+  loading: LoadingComponent,
+  // 加载失败时使用的组件
+  error: ErrorComponent,
+  // 展示加载时组件的延时时间
+  delay: 200,
+  // 如果提供了超时时间且组件加载也超时
+  timeout: 3000
+})
+```
+
+### 处理边界情况
+
+#### 访问根组件
+
+> this.$root
+
+#### 访问父组件实例
+
+> this.$parent
+
+#### 访问子组件实例或子元素
+
+尽管存在prop和事件，有时候需要在JavaScript里面访问一个子组件，这时候就可以使用`ref`为子组件添加一个ID引用
+
+```vue
+<base-input ref="myInput"></base-input>
+```
+
+在定义了这个`ref`的组件里就可以使用：
+
+```javascript
+this.$refs.myInput
+```
+
+访问这个组件实例
+
+**$refs只会在组件渲染完成后生效，并且不是响应式的。应该避免在模板或计算属性中访问$refs**
+
+#### 依赖注入
+
+vue中提供了`provide`以及`inject`选项，允许我们将数据跨层级传递
+
+比如在一个组件内部定义了一个`getMap`方法：
+
+```javascript
+export default {
+  provide: function() {
+    getMap: this.getMap
+  }
+}
+```
+
+然后在这个组件的任何后代组件里，我们都可以使用`inject`选项来接收我们想要添加在这个实例上的property：
+
+```javascript
+export default {
+  inject: ['getMap']
+}
+```
+
+**好处：**
+
+- 祖先组件不需要知道哪些后代组件使用它提供的property
+- 后代组件不需要知道被注入的property来自哪里
+
+**负面影响：**
+
+- 应用程序组件和当前组织方式耦合起来，重构更加困难
+- 提供的property是非响应式的，共享的这个property是应用特有的，而不是通用的
+
+### 程序化的事件侦听器
+
+Vue实例在其事件接口中提供了其他的方法：
+
+- 通过`$on(eventName, eventHandler)`侦听一个事件
+- 通过`$once(eventName, eventHandler)`一次性侦听一个事件
+- 通过`$off(eventName, eventHandler)`停止侦听一个事件
+
+有一种模式在第三方库中经常可见：
+
+```javascript
+export default {
+  mounted() {
+    this.picker = new Pikaday({})
+  },
+  beforeDestroy() {
+    this.picker.destroy()
+  }
+}
+```
+
+上述例子有两个潜在问题：
+
+- 组件实例中保存这个`picker`，如果可以的话最好只有在生命周期钩子可以访问到
+- 建立代码独立于清理代码，比较难于程序化地清理我们建立的所有东西
+
+可以通过一个程序化的侦听器解决这两个问题：
+
+```javascript
+export default {
+  mounted() {
+    var picker = new Pikaday({})
+    this.$once('hook:beforeDestroy', function() {
+      picker.destroy()
+    })
+  },
+}
+```
+
+通过这个策略，甚至可以让多个输入框元素同时使用不同的Pikaday，每个新的实例都程序化地在后期清理它自己：
+
+```javascript
+export default {
+  mounted() {
+    this.attachDatepicker('startDateInput')
+    this.attachDatepicker('endDateInput')
+  },
+  methods: {
+    attachDatepicker: function(refName) {
+      var picker = new Pikaday({
+        field: this.$refs[refName]
+      })
+      this.$once('hook:beforeDestroy', function() {
+        picker.destroy()
+      })
+    }
+  }
+}
+```
+
+### 循环引用
+
+#### 递归组件
+
+组件可以再自己的模板中调用自身的，不同必须要有`name`选项：
+
+```javascript
+name: 'unique-name-of-component'
+```
+
+但是这种用法很可能就会导致无限循环，所以请保证递归调用是条件性的
+
+#### 组件之间的循环引用
+
+假设构建一个文件目录树，就可能需要一个`tree-folder`组件，模板中有一个`tree-folder-contents`：
+
+```vue
+<template>
+	<p>
+    <span>{{folder.name}}</span>
+    <tree-folder-contents :children="folder.children" />
+  </p>
+</template>
+```
+
+还有一个`<tree-folder-contents>`组件，模板是这样的：
+
+```vue
+<template>
+  <ul>
+    <li v-for="child in children">
+      <tree-folder v-if="child.children" :folder="child.children" />
+    </li>
+  </ul>
+</template>
+```
+
+仔细观察会发现这些组件在渲染树中互为对方的后代和祖先——悖论，当然可以通过`Vue.component`全局注册组件
+
+如果使用一个模块系统依赖/导入组件，就会遇见一个错误：
+
+```
+Failed to mount component: template or render function not defined.
+```
+
+我们可以通过在生命周期钩子`beforeCreate`时注册内部组件：
+
+```javascript
+export default {
+  beforeCreate() {
+    this.$options.components.TreeFolderContents = require('./tree-foler-contents')
+  }
+}
+```
+
+或者本地注册组件的时候，使用webpack的异步`import`：
+
+```javascript
+export default {
+  components: {
+    TreeFolderContents: () => import('./tree-folder-contents')
+  }
+}
+```
+
+### 控制更新
+
+#### 强制更新
+
+如果在已经注意到数组和对象的变更检测注意事项，或者可能依赖了一个未被Vue响应系统追踪的状态，但是还是在某些情况下需要手动强制更新，那么可以使用：
+
+> $forceUpdate更新状态
+
+#### 通过v-once创建低开销的静态组件
+
+渲染普通HTML元素在vue中是非常快速的，但是有时候组件中包含大量的静态内容，这个时候可以在根元素上添加`v-once`，确保内容只计算一次然后缓存起来：
+
+```vue
+<template>
+	<div v-once>
+    <h1>
+      Terms Of Service
+  </h1>
+  </div>
+</template>
+```
+
+**不能过度使用这个模式，当需要渲染大量静态内容时，极少数情况下会给你带来便利**
+
+## 进入/离开&列表过渡
