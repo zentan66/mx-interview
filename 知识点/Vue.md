@@ -1,3 +1,5 @@
+[TOC]
+
 ## 基本内容
 
 > Vue是一款用于构建用户界面的渐进式JavaScript框架，其核心库只关注图层
@@ -557,3 +559,229 @@ export default {
 **不能过度使用这个模式，当需要渲染大量静态内容时，极少数情况下会给你带来便利**
 
 ## 进入/离开&列表过渡
+
+### 单元素/组件过渡
+
+Vue提供了`transition`的封装组件，在以下情形中，可以给任何元素和组件添加进入/离开过渡：
+
+- 条件渲染(`v-if`)
+- 条件展示(`v-show`)
+- 动态组件
+- 组件根节点
+
+下列就是一个经典例子：
+
+```vue
+<div>
+  <button @click="show = !show">
+    Toggle
+  </button>
+  <tranition name="fade">
+  	<p v-if="show">
+      hello
+    </p>
+  </tranition>
+</div>
+```
+
+```css
+.fade-enter-active, .fade-leave-active {
+  transition: opacity .5s;
+}
+.fade-enter, .fade-leave-to {
+  opacity: 0;
+}
+```
+
+#### 过渡类名
+
+- `v-enter`：进入过渡的开始状态
+- `v-enter-active`：定义进入过渡生效时的状态
+- `v-enter-to`：定义进入过渡的结束状态。在元素被插入之后下一帧生效，在过渡/动画完成之后移除
+- `v-leave`：定义离开过渡的开始状态
+- `v-leave-active`：定义离开过渡生效时的状态
+- `v-leave-to`：定义离开过渡的结束状态
+
+<img src="/Users/cherry/Desktop/peggy-interview-groups/assets/transition.png" style="zoom:50%;" />
+
+#### 自定义过渡的类名
+
+可以通过attribute来自定义过渡类名：
+
+- `enter-class`
+- `enter-active-class`
+- `enter-to-class`
+- `leave-class`
+- `leave-active-class`
+- `leave-to-class`
+
+优先级高于普通类名
+
+```vue
+<link href="animate.css">
+
+<transition name="custom-classes-transition" enter-active-class="animated tada" leave-active-class="animated bounceOutRight">
+	<p v-if="show">
+    hello
+  </p>
+</transition>
+```
+
+#### javascript钩子
+
+可以在attribute中声明JavaScript钩子
+
+```vue
+<transition
+  @before-enter="beforeEnter"
+  @enter="enter"
+  @after-enter="afterEnter"
+  @enter-cancelled="enterCancelled"
+  @before-leave="beforeLeave"
+  @leave="leave"
+  @after-leave="afterLeave"
+  @leave-cancelled="leaveCancelled"
+></transition>
+```
+
+```javascript
+export default {
+  beforeEnter(el) {},
+  enter(el, done) {},
+  afterEnter(el) {},
+  beforeLeave(el) {}
+}
+```
+
+这些钩子函数可以结合CSS`transition/animations`使用，也可以单独使用
+
+**当只用JavaScript过渡的时候，在enter和leave中必须使用done回调，否则会被同步调用，过渡立即完成**
+
+#### 初始渲染的过渡
+
+可以通过`appear`attribute设置节点在初始渲染的过渡：
+
+```vue
+<transition appear></transition>
+```
+
+#### 过渡模式
+
+transition的默认行为-进入和离开同时发生
+
+在同时生效的进入和离开的过渡不能满足所有要求，Vue提供了**过渡模式**
+
+- `in-out`：新元素先进行过渡，完成之后当前元素过渡离开
+- `out-in`：当前元素先进行过渡，完成之后新元素过渡进入
+
+### 列表过渡
+
+单个节点过渡就用`transition`，但是多个节点同时渲染的时候，就可以使用`transition-group`组件，这个组件的几个特点：
+
+- 不同于`<transition>`，该元素会以一个真实元素呈现：默认是`<span>`，可以通过`tag`attribute更换为其他元素
+- 过渡模式不可用
+- 内部元素总需要提供一个唯一的`key`attribute值
+- CSS过渡的类将会应用在内部的元素中，而不是这个组/容器本身
+
+##### 列表的排序过渡
+
+`<transition-group>`组件有一个特殊之处。不仅可以进入和离开动画，还可以改变定位。要使用这个新功能只需了解新增的`v-move`class。
+
+## 可复用性
+
+### 混入
+
+混入提供了一种非常灵活的方式，来分发Vue组件中的可复用功能。
+
+```javascript
+var myMixin = {
+  create() {},
+  methods: {
+    hello() {}
+  }
+}
+
+var Component = Vue.extend({
+  mixins: [myMixin]
+})
+```
+
+当组件和混入对象含有同名选项时，这些选项将以恰当的方式进行"合并"。当选项发生冲突时以组件数据优先。
+
+同名钩子函数将合并为一个数组，都将被调用。混入对象的钩子将在组件自身钩子之前调用。
+
+值为对象的选项，例如`methods`、`components`和`directives`将被合并为同一个对象。两个对象键名冲突时，取组件对象的键值对。
+
+#### 全局混入
+
+混入可以全局注册，使用时格外小心！一旦使用全局混入，将影响每一个之后创建的Vue实例。
+
+```javascript
+Vue.mixin({
+  created() {}
+})
+```
+
+#### 自定义选项合并策略
+
+自定义选项使用默认策略，即简单地覆盖已有值。如果想让自定义选项以自定义逻辑合并，可以向`Vue.config.optionMergeStrategies`添加一个函数：
+
+```javascript
+Vue.config.optionMergeStrategies.myOption = function(toVal, fromVal) {}
+```
+
+## 自定义指令
+
+如果需要对普通DOM元素进行底层操作，这个时候就会用到自定义指令：
+
+```javascript
+Vue.directive('focus', {
+  // 当被绑定元素插入到DOM中时……
+  inserted(el) {
+    el.focus();
+  }
+})
+```
+
+也可以注册局部指令：
+
+```javascript
+export default {
+  directives: {
+    focus: {
+      inserted(el) {
+        el.focus();
+      }
+    }
+  }
+}
+```
+
+### 钩子函数
+
+一个指令定义对象可以提供以下几个钩子函数：
+
+- `bind`：只调用一次，指令第一次绑定到元素时调用
+- `inserted`：被绑定元素插入父节点时调用
+- `update`：所有组件的VNode更新时调用，可能发生在其子节点VNode更新之前
+- `componentUpdated`：指令所在组件的VNode及其子VNode全部更新后调用
+- `unbind`：只调用一次，指令与元素解绑时调用
+
+#### 钩子函数参数
+
+- `el`：指令所绑定的元素，可直接操作DOM
+- `binding`：一个对象，包含以下property
+  - `name`：指令名
+  - `value`：指令绑定值
+  - `oldValue`：指令绑定的前一个值
+  - `expression`：字符串形式的指令表达式
+  - `arg`：传给指令的参数
+  - `modifiers`：一个包含修饰符的对象
+- `vnode`：vue编译生成的虚拟节点
+- `oldVnode`：上一个虚拟节点
+
+### 动态指令参数
+
+指令的参数可以是动态的。例如：在`vue-mydirective:[argument]="value"`中，`argument`参数可以根据组件实例数据进行更新。
+
+## 渲染函数&JSX
