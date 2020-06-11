@@ -602,7 +602,7 @@ Vue提供了`transition`的封装组件，在以下情形中，可以给任何�
 - `v-leave-active`：定义离开过渡生效时的状态
 - `v-leave-to`：定义离开过渡的结束状态
 
-<img src="/Users/cherry/Desktop/peggy-interview-groups/assets/transition.png" style="zoom:50%;" />
+<img src="https://github.com/zentan66/peggy-interview-groups/raw/master/assets/transition.png" style="zoom:50%;" />
 
 #### 自定义过渡的类名
 
