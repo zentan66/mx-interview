@@ -1,4 +1,12 @@
-[TOC]
+## 目录
+
+- [生命周期](##生命周期)
+- [数据传递](##数据传递)
+- [组件](##组件)
+- [进入/离开&列表过渡](##进入/离开&列表过渡)
+- [可复用性](##可复用性)
+- [自定义指令](##自定义指令)
+- [渲染函数&JSX](##渲染函数&JSX)
 
 ## 基本内容
 
@@ -32,10 +40,6 @@ Vue中会尽可能高效地渲染元素，所以会复用已有元素而不是�
 ```
 
 
-
-
-
-### 指令
 
 ## 生命周期
 
@@ -224,7 +228,7 @@ export default {
 
 ### 插槽
 
-##### 具名插槽
+#### 具名插槽
 
 在2.6之后的版本中，子组件内的多个插槽可以通过设置一个name值，使之可以具体定位到某个元素
 
@@ -258,7 +262,7 @@ export default {
 </base-layout>
 ```
 
-##### 在父组件插槽中访问子组件数据
+#### 在父组件插槽中访问子组件数据
 
 有时候会想着在父组件中访问到子组件内的数据，那么我们可以这样写：
 
@@ -277,7 +281,7 @@ export default {
 
 绑定在`<slot>`元素上的attribute被称为`插槽prop`。
 
-##### 独占默认插槽的缩写语法
+#### 独占默认插槽的缩写语法
 
 当提供的内容只有默认插槽时，组件的标签才可以被当作插槽的模板来使用：
 
@@ -785,3 +789,304 @@ export default {
 指令的参数可以是动态的。例如：在`vue-mydirective:[argument]="value"`中，`argument`参数可以根据组件实例数据进行更新。
 
 ## 渲染函数&JSX
+
+### 基础内容
+
+通过jsx可以更加容易创建出需要的组件模板：
+
+```javascript
+export default {
+  props: {
+    level: {
+      type: Number,
+      required: true
+    }
+  },
+  render(h) {
+    return h(
+      'h' + this.level, // 标签名
+      this.$slots.default // 子节点数组
+    )
+  }
+}
+```
+
+向组件中传递不带`v-slot`指令的子节点时，这些节点就存在组件实例的`$slots.default`中
+
+### 虚拟DOM
+
+Vue通过建立一个虚拟DOM来追踪自己要如何改变真实DOM
+
+```javascript
+createElement('h1', this.blogTitle);
+```
+
+`createElement`其实返回的其实不是一个实际的DOM元素，其名字实际应该是叫做`createNodeDescription`，包含的信息会告诉Vue页面渲染什么样的节点，包括其子节点的描述信息
+
+#### createElement参数
+
+```javascript
+// @return {VNode}
+createElement(
+  // {String|Object|Function}
+  // 一个HTML标签名、组件选项对象
+  'div',
+  // {Object}
+  // 一个与模板中attribute对应的数据对象，可选
+  {},
+  // {String|Array}
+  // 子级虚拟节点
+  [
+    '文字文字文字',
+    createElement('h1', '一则头条'),
+    createElement(myComponent, {
+      props: {
+        someProp: 'foobar'
+      }
+    })
+  ]
+)
+```
+
+#### 数据对象
+
+```javascript
+{
+  // 接受一个字符串、对象或字符串和对象组成的数组
+  'class': {
+    foo: true
+  },
+  // 接受一个字符串、对象或对象组成的数组
+  style: {
+    color: 'red'
+  },
+  // 普通HTML attribute
+  attrs: {
+    id: 'foo'
+  },
+  // 组件prop
+  props: {
+    myProp: 'bar'
+  },
+  // DOM property
+  domProps: {
+    innerHTML: 'baz'
+  },
+  // 事件监听器在“on“内
+  // 不再支持如`v-on:keyup.enter`这样的修饰器
+  on: {
+    click: this.clickHandler
+  },
+  // 仅用于组件，用于监听原生事件，而不是组件内部使用
+  nativeOn: {
+    click: this.nativeClickHandler
+  },
+  // 自定义指令
+  directives: [
+    {
+      name: 'my-custom-directive',
+      value: '2',
+      expression: '1 + 1',
+      arg: 'foo',
+      modifiers:{
+        bar: true
+      }
+    }
+  ],
+  // 作用域插槽格式为
+  // { name: props => VNode | Array<VNode> }
+  scopedSlots: {
+    default: props => createElement('span', props.text)
+  },
+  // 如果组件是其他组件的子组件，需为插槽指定名称
+  slot: 'name-of-slot',
+  key: 'myKey',
+  ref: 'myRef',
+  // 如果渲染函数中给多个元素都应用了相同的ref名
+  // 那么`$refs.myRef`会变成一个数组
+  refInFor: true
+}
+```
+
+#### 约束
+
+**VNode必须是唯一的**
+
+组件树种的VNode必须是唯一的。以下渲染函数是不合法的：
+
+```javascript
+export default {
+  render(h) {
+    var myParagraphVNode = h('p', 'hi')
+    return h('div', [
+      myParagraphVNode, myParagraphVNode
+    ])
+  }
+}
+```
+
+#### v-model
+
+渲染函数中没有对应的`v-model`，自己实现的逻辑如下：
+
+```javascript
+export default {
+  props: ['value'],
+  render(h) {
+    var self = this
+    return h('input', {
+      domProps: {
+        value: self.value
+      },
+      on: {
+        input(event) {
+          self.$emit('input', event.target.value)
+        }
+      }
+    })
+  }
+}
+```
+
+#### 事件&按键修饰符
+
+对于诸如`.passive`、`.capture`和`.once`这些修饰符，Vue都提供了相应的前缀可用于`on`：
+
+| 修饰符                           | 前缀 |
+| -------------------------------- | ---- |
+| `.passive`                       | `&`  |
+| `.capture`                       | `!`  |
+| `.once`                          | `~`  |
+| `.capture.once`或`.once.capture` | `~!` |
+
+实际应用如下：
+
+```javascript
+{
+  on: {
+    '!click': this.clickHandler
+  }
+}
+```
+
+而其他修饰都不是必须的，可以自己实现
+
+#### 插槽
+
+可以通过`this.$slots`访问静态插槽内容，每一个插槽都是一个VNode数组
+
+#### 函数式组件
+
+对于没有任何管理状态，也不用监听传递给它的状态，也没有生命周期的组件，且只是一个接受一些prop的函数，这种情况可以将该组件标记为`functional`，意味着这是无状态，没有实例的
+
+```javascript
+export default {
+  functional: true,
+  props: {},
+  render(h, context) {}
+}
+```
+
+组件需要的一切都是通过`context`参数传递的，是一个包含以下字段的对象：
+
+- `props`：提供所有prop的对象
+- `children`：VNode子节点的数组
+- `slots`：一个函数，返回了包含所有插槽的对象
+- `scopedSlots`：一个暴露传入的作用域插槽的对象
+- `data`：传递给组件的整个数据对象
+- `parent`：对父组件的引用
+- `listeners`：一个包含了所有父组件为当前组件注册的事件监听器的对象
+- `injections`：如果使用了`inject`选项，则该对象包含了应当被注入的property
+
+**函数式组件只是函数，所以渲染开销低很多**
+
+## 插件
+
+### 功能
+
+- 添加全局方法或者property
+- 添加全局资源：指令/过滤器/过渡等
+- 通过全局混入来添加一些组件选项
+- 添加Vue实例方法
+
+### 如何使用
+
+通过全局方法`Vue.use()`使用插件，需要在`new Vue()`启动应用之前完成
+
+```javascript
+Vue.use(MyPlugin, { someOption: true })
+```
+
+`Vue.use`会自动阻止多次注册相同插件，即使多次调用也只会注册一次该插件
+
+### 开发插件
+
+Vue.js的插件应该暴露一个`install`方法，第一个参数是`Vue`构造器，第二个参数是一个可选的选项对象
+
+```javascript
+MyPlugin.install = function (Vue, options) {
+  // 1. 添加全局方法或 property
+  Vue.myGlobalMethod = function () {
+    // 逻辑...
+  }
+
+  // 2. 添加全局资源
+  Vue.directive('my-directive', {
+    bind (el, binding, vnode, oldVnode) {
+      // 逻辑...
+    }
+    ...
+  })
+
+  // 3. 注入组件选项
+  Vue.mixin({
+    created: function () {
+      // 逻辑...
+    }
+    ...
+  })
+
+  // 4. 添加实例方法
+  Vue.prototype.$myMethod = function (methodOptions) {
+    // 逻辑...
+  }
+}
+```
+
+## 过滤器
+
+Vue.js允许自定义过滤器，可用于一些常用文本格式化。可用在两个地方：**双花括号**和**v-bind表达式**
+
+```vue
+{{ message | capitlize }}
+
+<div v-bind:id="rawId | formatId"></div>
+```
+
+### 定义方式
+
+**局部**
+
+```javascript
+export default {
+  filters: {
+    capitalize(value) {
+      return 'something'
+    }
+  }
+}
+```
+
+**全局定义**
+
+```javascript
+Vue.filter('capitalize', function(value){
+  return 'something'
+})
+```
+
+### 过滤器可多个调用
+
+```vue
+{{ message | filterA |filterB }}
+```
