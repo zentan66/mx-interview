@@ -485,3 +485,15 @@ new VueRouter({
 })
 ```
 
+## API
+
+### \<router-link\>
+
+`<router-link`可以通过作用域插槽暴露底层的定制能力，在使用`v-slot`API时，需要向`router-link`传入一个单独的子元素
+
+```vue
+<router-link to="/about" v-slot="{ href, route, navigate, isActive, isExactActive }">
+	<li :class="[isActive && 'router-link-active', isExactActive && 'router-link-exact-active']"></li>
+</router-link>
+```
+
