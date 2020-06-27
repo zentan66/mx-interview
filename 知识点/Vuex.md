@@ -320,7 +320,7 @@ class Store {
 ```javascript
 function installModule(store, rootState, path, module, hot) {
   const isRoot = !path.length
-  const namespace = store._modules.getNamespace(path)
+  const namespace = store._modules.getNamespace(path) // 
   
   if (module.namespaced) {
     store._modulesNamespaceMap[namespace] = module
