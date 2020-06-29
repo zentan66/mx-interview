@@ -1,43 +1,43 @@
-## Vuex是什么
+## Vuex 是什么
 
-Vuex是一个专为Vue.js应用程序开发的状态管理模式。采用集中式存储管理应用的所有组件的状态。
+Vuex 是一个专为 Vue.js 应用程序开发的状态管理模式。采用集中式存储管理应用的所有组件的状态。
 
 ### 单向数据流
 
 <img src="../assets/flow.png" alt="单向数据流理念图" style="zoom:50%;" />
 
 - `state`：驱动应用的数据源
-- `view`：以声明方式将state映射到视图
-- `actions`：响应view上用户输入导致的状态变化
+- `view`：以声明方式将 state 映射到视图
+- `actions`：响应 view 上用户输入导致的状态变化
 
-**Vuex是专门为Vue.js设计的状态管理库，以利用Vue.js的细粒度数据响应机制来进行高效的状态变更**
+**Vuex 是专门为 Vue.js 设计的状态管理库，以利用 Vue.js 的细粒度数据响应机制来进行高效的状态变更**
 
 <img src="../assets/vuex.png" alt="vuex数据流图" style="zoom:70%;" />
 
 ### 概述
 
-每一个Vuex应用的核心就是store，“store”就是一个容器，包含着应用中大部分的状态
+每一个 Vuex 应用的核心就是 store，“store”就是一个容器，包含着应用中大部分的状态
 
 ## 核心概念
 
 ### State
 
-Vue使用单一状态树，用一个对象就包含了全部的应用层级状态。
+Vue 使用单一状态树，用一个对象就包含了全部的应用层级状态。
 
-#### 如何在组件中获取vuex中的状态
+#### 如何在组件中获取 vuex 中的状态
 
-由于Vuex的状态存储是响应式的，从store实例中读取状态的最简单方法就是在计算属性中返回某个状态
+由于 Vuex 的状态存储是响应式的，从 store 实例中读取状态的最简单方法就是在计算属性中返回某个状态
 
-在初始化应用实例时，通过将store传入，可以将状态注入到每一个子组件中
+在初始化应用实例时，通过将 store 传入，可以将状态注入到每一个子组件中
 
 ```javascript
 const Counter = {
   template: `<div>{{ count }}</div>`,
   computed: {
-    count () {
+    count() {
       return this.$store.state.count
-    }
-  }
+    },
+  },
 }
 ```
 
@@ -48,16 +48,16 @@ import { mapState } from 'vuex'
 
 export default {
   computed: mapState({
-    count: state => state.count,
-    
-    countAlias: 'count' // 等价于 state => state.count
-  })
+    count: (state) => state.count,
+
+    countAlias: 'count', // 等价于 state => state.count
+  }),
 }
 ```
 
 ### Getter
 
-类似于Vue中的computed，在vuex中也有一个计算属性“getter”，可以缓存数据，只有当数据更改时才会重新计算。
+类似于 Vue 中的 computed，在 vuex 中也有一个计算属性“getter”，可以缓存数据，只有当数据更改时才会重新计算。
 
 #### 使用方式
 
@@ -65,13 +65,13 @@ export default {
 // store.js
 const store = new Vuex.Store({
   state: {
-    todos: []
+    todos: [],
   },
   getters: {
-    doneTodos: state => {
-      return state.todos.filter(todo => todo.done)
-    }
-  }
+    doneTodos: (state) => {
+      return state.todos.filter((todo) => todo.done)
+    },
+  },
 })
 
 // TodoList.vue
@@ -79,8 +79,8 @@ export default {
   computed: {
     doneTodosCount() {
       return this.$store.getters.doneTodos.length
-    }
-  }
+    },
+  },
 }
 ```
 
@@ -90,18 +90,16 @@ export default {
 new Vue.Store({
   // ...
   getters: {
-    getTodoById: state => id => {
-      return state.todos.find(todo => todo.id === id)
-    }
-  }
+    getTodoById: (state) => (id) => {
+      return state.todos.find((todo) => todo.id === id)
+    },
+  },
 })
 ```
 
-
-
 ### Mutation
 
-在Vuex中更改store的状态的唯一方法就是提交mutation。
+在 Vuex 中更改 store 的状态的唯一方法就是提交 mutation。
 
 - 提交方式一：
 
@@ -115,9 +113,9 @@ new Vue.Store({
   store.commit({ type: 'increment', amount: 10 })
   ```
 
-#### 遵守Vue响应规则
+#### 遵守 Vue 响应规则
 
-- 最好提前在store中初始化好所需属性
+- 最好提前在 store 中初始化好所需属性
 
 - 当在对象上添加新属性时，应该使用：
 
@@ -129,7 +127,7 @@ new Vue.Store({
     state.obj = { ...state.obj, newProp: 123 }
     ```
 
-#### 使用常量替代Mutation事件类型
+#### 使用常量替代 Mutation 事件类型
 
 ```javascript
 // mutation-types.js
@@ -150,33 +148,29 @@ const store = new Vuex.Store({
 })
 ```
 
-#### 组件中提交Mutation
+#### 组件中提交 Mutation
 
 ```javascript
 import { mapMutations } from 'vuex'
 export default {
   methods: {
-    ...mapMutations([
-      'increment'
-    ]),
+    ...mapMutations(['increment']),
     // 或者
     ...mapMutations({
-      add: 'increment'
-    })
-  }
+      add: 'increment',
+    }),
+  },
 }
 ```
-
-
 
 ### Action
 
 #### 特点
 
-- 提交的是mutation，而不是直接变更状态
+- 提交的是 mutation，而不是直接变更状态
 - 可以包含任意异步操作
 
-Action的第一个参数是一个与store实例具有相同方法和属性的context对象
+Action 的第一个参数是一个与 store 实例具有相同方法和属性的 context 对象
 
 #### 分发方式
 
@@ -192,11 +186,9 @@ Action的第一个参数是一个与store实例具有相同方法和属性的con
   store.dispatch({ type: 'incrementAsync', amount: 10 })
   ```
 
-  
-
 ### Module
 
-vuex允许我们将store分割成模块，每个模块有自己的state、mutation、action、getter。
+vuex 允许我们将 store 分割成模块，每个模块有自己的 state、mutation、action、getter。
 
 ```javascript
 const moduleA = {
@@ -207,23 +199,23 @@ const moduleA = {
 }
 ```
 
-对于模块内部的action，局部状态通过`context.state`暴露出来，根节点状态则为`context.rootState`
+对于模块内部的 action，局部状态通过`context.state`暴露出来，根节点状态则为`context.rootState`
 
 ```javascript
 const moduleA = {
   actions: {
-    increment({ state, commit, rootState }) {}
-  }
+    increment({ state, commit, rootState }) {},
+  },
 }
 ```
 
-对于模块内部的getter，根节点状态会作为第三个参数暴露出来
+对于模块内部的 getter，根节点状态会作为第三个参数暴露出来
 
 ```javascript
 const moduleA = {
   getters: {
-    sumWithRootCount(state, getters, rootState) {}
-  }
+    sumWithRootCount(state, getters, rootState) {},
+  },
 }
 ```
 
@@ -239,19 +231,19 @@ new Vue.Store({
       state: () => ({}),
       getters: {},
       actions: {},
-      mutations: {}
-    }
-  }
+      mutations: {},
+    },
+  },
 })
 ```
 
 #### 在带命名空间的模块内访问全局内容
 
-`rootState`和`rootGetters`会作为第三和第四个参数传入getter，也可以通过`context`对象的属性传入action
+`rootState`和`rootGetters`会作为第三和第四个参数传入 getter，也可以通过`context`对象的属性传入 action
 
-#### 在带命名空间的模块中注册全局action
+#### 在带命名空间的模块中注册全局 action
 
-若需要在带命名空间的模块注册全局action，可以添加`root: true`
+若需要在带命名空间的模块注册全局 action，可以添加`root: true`
 
 ```javascript
 export default {
@@ -259,9 +251,9 @@ export default {
   actions: {
     someAction: {
       root: true,
-      handler(namespacedContext, payload) {}
-    }
-  }
+      handler(namespacedContext, payload) {},
+    },
+  },
 }
 ```
 
@@ -271,12 +263,12 @@ export default {
 export default {
   computed: {
     ...mapState('module', {
-      a: state => state.a
-    })
+      a: (state) => state.a,
+    }),
   },
   methods: {
-    ...mapActions('module', ['foo', 'bar'])
-  }
+    ...mapActions('module', ['foo', 'bar']),
+  },
 }
 ```
 
@@ -287,11 +279,25 @@ import { createNamespacedHelpers } from 'vuex'
 const { mapState, mapActions } = createNamespacedHelpers('some/nested/module')
 ```
 
-这样使用可以不添加命名空间，直接对store的内容进行分发
+这样使用可以不添加命名空间，直接对 store 的内容进行分发
+
+#### 模块快捷导出
+
+```javascript
+const files = require.context('.', false, /\.js$/)
+const modules = {}
+
+files.keys().forEach((key) => {
+  if (key === './index.js') return
+  modules[key.replace(/(\.\/|\.js)/g, '')] = files(key).default
+})
+
+export default modules
+```
 
 ## 源码
 
-### Vuex构造函数
+### Vuex 构造函数
 
 ```javascript
 class Store {
@@ -299,20 +305,20 @@ class Store {
     if (!Vue && typeof window !== 'undefined' && window.Vue) {
       install(window.vue)
     }
-    this._modules = new ModuleCollection(options) 
-    
+    this._modules = new ModuleCollection(options)
+
     const state = this._modules.root.state
-    
+
     installModule(this, state, [], this._modules.root)
-    
+
     resetStoreVM(this, state)
-    
-    plugins.forEach(plugin => plugin(this))
+
+    plugins.forEach((plugin) => plugin(this))
   }
 }
 ```
 
-1. `ModuleCollection`是一个用于存储Vuex数据的地方，通过Store传入的诸如state、mutations等都存在`_modules`当中
+1. `ModuleCollection`是一个用于存储 Vuex 数据的地方，通过 Store 传入的诸如 state、mutations 等都存在`_modules`当中
 2. `resetStoreVM`方法用于对`getters`的数据进行缓存
 
 ### installModule
@@ -320,36 +326,36 @@ class Store {
 ```javascript
 function installModule(store, rootState, path, module, hot) {
   const isRoot = !path.length
-  const namespace = store._modules.getNamespace(path) // 
-  
+  const namespace = store._modules.getNamespace(path) //
+
   if (module.namespaced) {
     store._modulesNamespaceMap[namespace] = module
   }
-  
+
   if (!Root && !hot) {
     const parentState = getNestedState(rootState, path.slice(0, -1))
     const moduleName = path[path.length - 1]
     Vue.set(parentState, moduleName, module.state) // I
   }
-  
-  const local = module.context = makeLocalContext(store, namespace, path) // II
-  
+
+  const local = (module.context = makeLocalContext(store, namespace, path)) // II
+
   module.forEachMutation((mutation, key) => {
     const namespacedType = namespace + key
     registerMutation(store, namespacedType, mutation, local)
   })
-  
+
   module.forEachAction((action, key) => {
     const type = action.root ? key : namespace + key
     const handler = action.handler || action
     registerAction(store, type, handler, local)
   })
-  
+
   module.forEachGetter((getter, key) => {
     const namespacedType = namespace + key
     registerGetter(store, namespacedType, getter, local)
   })
-  
+
   module.forEachChild((child, key) => {
     installModule(store, rootState, path.concat(key), child, hot)
   })
@@ -372,17 +378,17 @@ function resetStoreVM(store, state, hot) {
     computed[key] = partial(fn, store)
     Object.defineProperty(store.getters, key, {
       get: () => store._vm[key],
-      enumerable: true
+      enumerable: true,
     })
   })
-  
+
   const silent = Vue.config.silent
   Vue.config.silent = true
   store._vm = new Vue({
     data: {
-      $$state: state
+      $$state: state,
     },
-    computed
+    computed,
   })
   Vue.config.silent = silent
   if (store.strict) {
@@ -399,9 +405,9 @@ function resetStoreVM(store, state, hot) {
 }
 ```
 
-上述代码首先是对`getters`上的数据的`get`添加了拦截操作，而后创建一个带有`data`和`computed`数据的Vue实例，并在下一个事件循环之后将之前初始化的Vue实例销毁
+上述代码首先是对`getters`上的数据的`get`添加了拦截操作，而后创建一个带有`data`和`computed`数据的 Vue 实例，并在下一个事件循环之后将之前初始化的 Vue 实例销毁
 
-### 向组件中注入store
+### 向组件中注入 store
 
 ```javascript
 function applyMixin(Vue) {
@@ -410,12 +416,12 @@ function applyMixin(Vue) {
     Vue.mixin({ beforeCreate: vuexInit })
   } else {
     const _init = Vue.prototype._init
-    Vue.prototype._init = function(options = {}) {
+    Vue.prototype._init = function (options = {}) {
       options.init = options.init ? [vuexInit].concat(options.init) : vuexInit
       _init.call(this, options)
     }
   }
-  
+
   function vuexInit() {
     const options = this.$options
     if (options.store) {
@@ -427,7 +433,7 @@ function applyMixin(Vue) {
 }
 ```
 
-从上述代码中可以看到，该方法会根据Vue版本，在每一个组件创建时执行一个`vuexInit`的方法，将store的数据注入到当前组件中
+从上述代码中可以看到，该方法会根据 Vue 版本，在每一个组件创建时执行一个`vuexInit`的方法，将 store 的数据注入到当前组件中
 
 ### dispatch
 
@@ -439,16 +445,15 @@ export default {
     const action = { type, payload }
     // 根据触发的事件类型，找到对应的事件
     const entry = this._actions[type]
-    
+
     try {
       this._actionSubscribers
-      	.slice()
-        .filter(sub => sub.before)
-        .forEach(sub => sub.before(action, this.state))
-    } catch(e) {}
-    
-    const result = entry.length > 1 ? Promise.all(entry.map(handler => handler(payload))) : entry[0](payload)
-  }
+        .slice()
+        .filter((sub) => sub.before)
+        .forEach((sub) => sub.before(action, this.state))
+    } catch (e) {}
+
+    const result = entry.length > 1 ? Promise.all(entry.map((handler) => handler(payload))) : entry[0](payload)
+  },
 }
 ```
-
