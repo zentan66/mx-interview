@@ -291,7 +291,27 @@ const { mapState, mapActions } = createNamespacedHelpers('some/nested/module')
 
 ## 源码
 
-### Vuex构造函数
+### 目录
+
+```
+vuex
+└── src
+    ├── module
+    │   ├── module-collection.js
+    │   └── module.js
+    ├── plugins
+    │   ├── devtool.js
+    │   └── logger.js
+    ├── helpers.js # 包含一些诸如mapState、mapMutations等辅助函数
+    ├── index.js # 入口文件，导出vuex的函数
+    ├── mixin.js # 将store注入到每个组件中
+    ├── store.js # 主要功能文件
+    ├── util.js # 工具函数
+```
+
+### store.js
+
+#### 构造函数constructor
 
 ```javascript
 class Store {
@@ -299,77 +319,132 @@ class Store {
     if (!Vue && typeof window !== 'undefined' && window.Vue) {
       install(window.vue)
     }
-    this._modules = new ModuleCollection(options) 
+    
+    // 声明实例的数据
+    this._modules = new ModuleCollection(options)
+    this._watcherVM = new Vue()
+    // ... 其他变量
+    
+    
+    const store = this
+    const { dispatch, commit } = this
+    this.dispatch = function boundDispatch(type, payload) {
+      return dispatch.call(store, type, payload)
+    }
+    this.commit = function boundCommit(type, payload, options) {
+      return commit.call(store, type, payload, options)
+    }
     
     const state = this._modules.root.state
     
+    // 初始化根模块
+    // 递归地注册所有子模块
+    // 搜集所有模块的getters到this._wrappedGetters中
     installModule(this, state, [], this._modules.root)
     
+    // 初始化负责响应式的存储对象vm
+    // 并且将 _wrappedGetters注册为计算属性
     resetStoreVM(this, state)
     
+    // 应用插件
     plugins.forEach(plugin => plugin(this))
   }
 }
 ```
 
-1. `ModuleCollection`是一个用于存储Vuex数据的地方，通过Store传入的诸如state、mutations等都存在`_modules`当中
-2. `resetStoreVM`方法用于对`getters`的数据进行缓存
+从构造函数可以看到其主要功能就是：
 
-### installModule
+1. 将store注入到每个组件中
+2. 初始化一些必要的变量，存储状态数据，监听的函数
+3. 缓存getters
+
+#### commit和dispatch
 
 ```javascript
-function installModule(store, rootState, path, module, hot) {
-  const isRoot = !path.length
-  const namespace = store._modules.getNamespace(path) // 
-  
-  if (module.namespaced) {
-    store._modulesNamespaceMap[namespace] = module
+class Store {
+  commit(_type, _payload, _options) {
+    const { type, payload, options } = unifyObjectStyle(_type, _payload, options)
+    const mutation = { type, payload }
+    
+    const entry = this._mutations[type]
+    // 将需要执行的mutation函数包裹在一个函数中
+    // mutation函数执行时需要将 this._commiting打开
+    // 执行结束后再重置为执行前的状态
+    this._withCommit(() => {
+      entry.forEach(function commitIterator(handler) {
+        handler(payload)
+      })
+    })
+    
+    // mutation事件订阅
+    this._subscribers
+    	.slice() // 浅拷贝，防止订阅者同步取消订阅时，遍历失效
+      .forEach(sub => sub(mutation, this.state))
   }
   
-  if (!Root && !hot) {
-    const parentState = getNestedState(rootState, path.slice(0, -1))
-    const moduleName = path[path.length - 1]
-    Vue.set(parentState, moduleName, module.state) // I
+  dispatch(_type, _payload) {
+    const { type, payload } = unifyObjectStyle(_type, _payload)
+    const action = { type, payload }
+    const entry = this._actions[type]
+    
+    // 首先将事件订阅器中设置了before的执行完
+    try {
+      this._actionSubscribers
+      	.slice()
+        .forEach(sub => sub.before(action, this.state))
+    } catch(e) {}
+    
+    // 由于action是异步调用，多个的时候就用Promise.all包裹住
+    const result = entry.length > 1
+    	? Promise.all(entry.map(handler => handler(payload)))
+    	: entry[0](payload)
+    
+    // 返回一个Promise
+    return new Promise((resolve, reject) => {
+      // Promise.all执行后，
+      // 如果执行成功，执行action事件监听器中的after钩子
+      // 将结果暴露到外层
+      // 如果执行失败，就执行error钩子
+      // 并将错误暴露到外层
+      result.then(res => {
+        try {
+          this._actionSubscribers
+          	.filter(sub => sub.after)
+          	.forEach(sub => sub.after(action, this.state))
+        } catch(e) {}
+        resolve(res)
+      }, error => {
+        try {
+          this._actionSubscribers
+          	.filter(sub => sub.error)
+          	.forEach(sub => sub.error(action, this.state, error))
+        } catch(e) {}
+        reject(error)
+      })
+    })
   }
-  
-  const local = module.context = makeLocalContext(store, namespace, path) // II
-  
-  module.forEachMutation((mutation, key) => {
-    const namespacedType = namespace + key
-    registerMutation(store, namespacedType, mutation, local)
-  })
-  
-  module.forEachAction((action, key) => {
-    const type = action.root ? key : namespace + key
-    const handler = action.handler || action
-    registerAction(store, type, handler, local)
-  })
-  
-  module.forEachGetter((getter, key) => {
-    const namespacedType = namespace + key
-    registerGetter(store, namespacedType, getter, local)
-  })
-  
-  module.forEachChild((child, key) => {
-    installModule(store, rootState, path.concat(key), child, hot)
-  })
 }
 ```
 
-1. 在标记`I`处，可以看到使用了`Vue.set`方法，将每一个模块下的数据设置成响应式数据
-2. 标记`II`处是设置一个局部上下文对象，当调用`commit`或`dispath`能自动的对每个模块的调用路径进行设置
+从commit和dispatch的源码中可以看出两种方式的实现其实有些相似，都是讲同一种`type`的事件存到一个数组中，当使用`commit`和`dispatch`调用时，取出该事件数组，依次执行。在执行的过程中，也会对手动订阅的某个事件进行调用。比如通过commit的`subscribe`订阅添加一个事件，将每次commit存为一个快照。
 
-### resetStoreVM
+#### resetStoreVM (todo)
 
 ```javascript
 function resetStoreVM(store, state, hot) {
   const oldVm = store._vm
+  
+  // 绑定一个公共的getters
   store.getters = {}
+  // 重置局部getter缓存
   store._makeLocalGettersCache = Object.create(null)
   const wrappedGetters = store._wrappedGetters
   const computed = {}
   forEachValue(wrappedGetters, (fn, key) => {
+    // 设置getters的键为一个参数仅为store的方法
     computed[key] = partial(fn, store)
+    // 设置访问器属性，当访问 store.getters[key]时
+    // 对应的数值从store._vm中获取
     Object.defineProperty(store.getters, key, {
       get: () => store._vm[key],
       enumerable: true
@@ -378,6 +453,8 @@ function resetStoreVM(store, state, hot) {
   
   const silent = Vue.config.silent
   Vue.config.silent = true
+  // 设置 .vm为一个存储了store所有state
+  // 且getters对应为computed的vue实例
   store._vm = new Vue({
     data: {
       $$state: state
@@ -394,12 +471,106 @@ function resetStoreVM(store, state, hot) {
         oldVm._data.$$state = null
       })
     }
+    // 下一个循环结束后，销毁旧的.vm实例
     Vue.nextTick(() => oldVm.$destroy())
   }
 }
 ```
 
-上述代码首先是对`getters`上的数据的`get`添加了拦截操作，而后创建一个带有`data`和`computed`数据的Vue实例，并在下一个事件循环之后将之前初始化的Vue实例销毁
+该方法的主要功能就是将getters数据的getter关联到一个Vue实例的computed上，通过computed实现数据计算以及缓存功能，并清除上一个Vue实例
+
+### installModule
+
+```javascript
+function installModule(store, rootState, path, module, hot) {
+  // 是否是根模块
+  const isRoot = !path.length
+  // 获取当前模块的命名
+  const namespace = store._modules.getNamespace(path)
+  
+  // 如果是命名模块，则将其映射到._modulesNamespaceMap上
+  if (module.namespaced) {
+    store._modulesNamespaceMap[namespace] = module
+  }
+  
+  // 如果不是根模块，且不是hot（好吧，我暂时也不知道hot是什么）
+  if (!isRoot && !hot) {
+    // 获取当前模块的父级模块的state
+    const parentState = getNestedState(rootState, path.slice(0, -1))
+    // 获取当前模块对应的模块名字
+    const moduleName = path[path.length - 1]
+    // 将该模块设置成响应式
+    Vue.set(parentState, moduleName, module.state) // I
+  }
+  
+  // 设置一个具有局部操作的对象（包含dispatch、commit，state，getters属性或方法）
+  const local = module.context = makeLocalContext(store, namespace, path) // II
+  
+  // 将mutation、action、getter等注册到store中
+  module.forEachMutation((mutation, key) => {
+    const namespacedType = namespace + key
+    registerMutation(store, namespacedType, mutation, local)
+  })
+  
+  module.forEachAction((action, key) => {
+    const type = action.root ? key : namespace + key
+    const handler = action.handler || action
+    registerAction(store, type, handler, local)
+  })
+  
+  module.forEachGetter((getter, key) => {
+    const namespacedType = namespace + key
+    registerGetter(store, namespacedType, getter, local)
+  })
+  
+  // 递归调用该方法（作用不用我多说了吧）
+  module.forEachChild((child, key) => {
+    installModule(store, rootState, path.concat(key), child, hot)
+  })
+}
+```
+
+该方法的主要功能就是递归的将模块设置成响应式，并注册mutation、actions和getters
+
+#### makeLocalContext
+
+```javascript
+function makeLocalContext(store, namespace, path) {
+  const noNamespace = namespace === ''
+  
+  // 创建一个包含commit和dispatch的对象
+  // 当调用两个方法时，生成一个对应的type
+  // 并调用当前store对应的方法
+  const local = {
+    dispatch: noNamespace ? store.dispatch ? (_type, _payload, _options) {
+      const args = unifyObjectStyle(_type, _payload, _options)
+      const { payload, options } = args
+      let { type } = args
+      if (!options || !options.root) {
+        type = namespace + type
+      }
+      return store.dispatch(type, payload)
+    },
+    commit: noNamespace ? store.commit ? (_type, _payload, _options) {
+      // ...
+    }
+  }
+  // 设置local的两个属性的get方法
+  Object.defineProperties(local, {
+    getters: {
+      get: noNamespace
+        ? () => store.getters
+        : () => makeLocalGetters(store, namespace)
+    },
+    state: {
+      get: () => getNestedState(store.state, path)
+    }
+  })
+  return local
+}
+```
+
+该方法作用是创建一个局部的对象，用于store中我们定义的mutations、actions和getters的参数
 
 ### 向组件中注入store
 
@@ -428,27 +599,3 @@ function applyMixin(Vue) {
 ```
 
 从上述代码中可以看到，该方法会根据Vue版本，在每一个组件创建时执行一个`vuexInit`的方法，将store的数据注入到当前组件中
-
-### dispatch
-
-```javascript
-export default {
-  dispatch(_type, _payload) {
-    // 根据type类型，找出真正的type和payload数据
-    const { type, payload } = unifyObjectStyle(_type, _payload)
-    const action = { type, payload }
-    // 根据触发的事件类型，找到对应的事件
-    const entry = this._actions[type]
-    
-    try {
-      this._actionSubscribers
-      	.slice()
-        .filter(sub => sub.before)
-        .forEach(sub => sub.before(action, this.state))
-    } catch(e) {}
-    
-    const result = entry.length > 1 ? Promise.all(entry.map(handler => handler(payload))) : entry[0](payload)
-  }
-}
-```
-
