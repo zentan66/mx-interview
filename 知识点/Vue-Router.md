@@ -497,3 +497,176 @@ new VueRouter({
 </router-link>
 ```
 
+## 源码解析
+
+### 需要知道的问题
+
+- hash模式和history模式是如何监听页面地址变化的？
+
+其实在源码中可以了解到hash和history就是通过浏览器监听popstate和hashchange事件，
+
+- 如何将当前路由的组件渲染到页面中的？
+
+想要了解源码，我们可以从`install`的方法开始了解。这个是插件的入口地址，会将插件的功能通过该方法注入到Vue当中。
+
+### install
+
+```javascript
+// 为什么需要导出一个_Vue
+// 不希望把vue作为依赖导入，但是又想使用vue的方法
+export let _Vue
+
+export function install(Vue) {
+  if (install.installed && _Vue === Vue) return
+  install.installed = true
+  
+  _Vue = Vue
+  
+  const isDef = v => v !== undefined
+  
+  const registerInstance = (vm, callVal) {
+    let i = vm.$options._parentNode
+    if (isDef(i) && isDef(i = i.data) && isDef(i = i.registerRouteInstance)) {
+      i(vm, callVal)
+    }
+  }
+  
+  Vue.mixin({
+    beforeCreate() {
+      // 如果是根元素（因为router是一个VueRouter类的实例，
+      // 通过 new Vue传入的）
+      if (isDef(this.$options.router)) {
+        this._routerRoot = this
+        this._router = this.$options.router
+        this._router.init(this)
+        // 在根组件设置一个响应式的 `_route` 属性，其值是当前路由模式的实例对象
+        Vue.util.defineReactive(this, '_route', this._router.history.current)
+      } else {
+        this._routerRoot = (this.$parent && this.$parent._routerRoot) || this
+      }
+      registerInstance(this, this)
+    },
+    destroyed() {
+      registerInstance(this)
+    }
+  })
+  
+  Object.defineProperty(Vue.prototype, '$router', {
+    get () { return this._routerRoot._router }
+  })
+
+  Object.defineProperty(Vue.prototype, '$route', {
+    get () { return this._routerRoot._route }
+  })
+  
+  Vue.component('RouterView', View)
+  Vue.component('RouterLink', Link)
+  
+  const strats = Vue.config.optionMergeStrategies
+  strats.beforeRouteEnter = strats.beforeRouteLeave = strats.beforeRouteUpdate = strats.created
+}
+```
+
+### VueRouter
+
+说完install方法之后，就可以看该插件的核心文件之一（也就是index.js），在该文件中只有一个类
+
+#### constuctor(options = {})
+
+```javascript
+export default class VueRouter {
+  constructor(options) {
+    this.app = null
+    this.apps = []
+    this.options = options
+    this.beforeHooks = []
+    this.afterHooks = []
+    this.matcher = createMatcher(options.routes || [], this)
+    
+    let mode = options.mode || 'hash'
+    this.fallback = mode === 'history' && !supportsPushState && options.fallback !== false
+    if (this.callback) {
+      mode = 'hash'
+    }
+    if (!inBrowser) {
+      mode = 'abstract'
+    }
+    this.mode = mode
+    switch(mode) {
+      case 'history':
+        this.history = new HTML5History(this, options.base)
+        break
+      case 'hash':
+        this.history = new HashHistory(this, options.base, this.fallback)
+        break
+      case 'abstract':
+        this.history = new AbstractHistory(this, options.base)
+        break
+      default:
+        if (process.env.NODE_ENV !== 'production') {}
+    }
+  }
+}
+```
+
+在构造函数中，笔者认为应该注意的应该是`matcher`和`history`。
+
+`matcher`的功能就是处理当前路由地址的匹配
+
+`history`是当前使用的路由模式实例（主要是**history**和**hash**模式，**abstract**模式一般不会用到）
+
+### create-route-map
+
+```JavaScript
+export function createRouteMap(routes, oldPathList, oldPathMap, oldNameMap) {
+  const pathList = oldPathList || []
+  const pathMap = oldPathMap || Object.create(null)
+  const nameMap = oldNameMap || Object.create(null)
+  
+  routes.forEach((route) => {
+    addRouteRecord(pathList, pathMap, nameMap, route)
+  })
+  
+  // 处理通配符路由，将之放在 `pathList` 列表最后
+  // do something
+  
+  return {
+    pathList,
+    pathMap,
+    nameMap,
+  }
+}
+// 循环迭代将路由添加到 `pathList`数组中
+// 并将每一个路由映射到 `pathMap`当中
+// 如果路由有name属性，则将路由存到 `nameMap`中
+function addRouteRecord() {}
+
+/**
+ * 将路径用正则转为一个数组
+ * @returns Array<{name: string, optional: boolean}>
+ */
+function compileRouteRegex(path, pathToRegexpOptions) {}
+
+function normalizePath(path, parent, strict) {}
+```
+
+从上述代码可以看到该文件主要的功能就是对传入的路由进行正则处理，将其存储到变量中，并导出
+
+### create-matcher
+
+```javascript
+export function createMatcher(routes, router) {
+  function addRoutes(routes) {}
+  function match(raw, currentRoute, redirectedFrom) {
+    const location = normalizeLocation(raw, currentRoute, false, router)
+    const { name } = location
+    
+  }
+  function redirect(record, location) {}
+  function alias(record, location, matchAs) {}
+  function _createRoute(record, location, redirectedFrom) {}
+}
+function matchRoute(regex, path, params) {}
+function resolveRecordPath(path, record) {}
+```
+

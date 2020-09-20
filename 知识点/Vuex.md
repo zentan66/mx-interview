@@ -588,7 +588,7 @@ function applyMixin(Vue) {
   }
   
   function vuexInit() {
-    const options = this.$options
+    const options = this.$options // Vue实例上的属性都会存到 $options
     if (options.store) {
       this.$store = typeof options.store === 'function' ? options.store() : options.store
     } else if (options.parent && options.parent.$store) {
@@ -598,4 +598,20 @@ function applyMixin(Vue) {
 }
 ```
 
-从上述代码中可以看到，该方法会根据Vue版本，在每一个组件创建时执行一个`vuexInit`的方法，将store的数据注入到当前组件中
+根据Vue版本的不同，向Vue的第一个生命周期中添加一个`vueInit`方法
+
+之所以能通过`$options.store`访问到数据仓库，就是因为在初始化应用程序的时候，我们向其中传入了一个**Vuex.Store实例**
+
+```javascript
+import Vue from 'vue'
+import store from './store/index'
+import App from './App.vue'
+
+new Vue({
+  store, // 在$options中访问到的store
+  render: h => h(App)
+}).$mount('#app')
+```
+
+只有在根组件才能通过`$options.store`访问仓库，子组件只能通过`$optoins.parent.$store`访问
+
