@@ -229,7 +229,43 @@ mounted(){
   - 由于单页面应用在一个页面中显示所有的内容，所以不能使用浏览器的前进后退功能，所有的页面切换需要自己建立堆栈管理
   - 不利于SEO优化
 
-### 24.vue-router中有哪些路由守卫
+### 24.vue-router中有哪些路由守卫 
+
+### 25.vue-router中hash/history两种模式的区别
+
+- hash模式的url会显示'#'，而history没有
+- 刷新页面时，hash模式可以正常加载到hash对应的页面，而history没有处理就会返回404
+- 兼容性上，hash模式可以支持低版本浏览器和IE
+
+### 26.vue-router中hash/history是如何实现的
+
+- hash模式
+  - `#`后面的`hash`值变化，不会导致浏览器向服务器发出请求，浏览器不发出请求，就不会刷新页面，同时可以通过监听`hashchange`事件知道hash发生了哪些变化
+- history模式
+  - 主要是`html5`标准发布的两个api（`pushState`和`replaceState`），这两个api可以改变url，但是不会发送请求
+
+## Vuex
+
+### vuex有什么优缺点
+
+**优点：**
+
+- 解决了非父子组件的消息传递
+- 减少了ajax请求次数
+
+**缺点**
+
+- 刷新浏览器，vuex中的`State`就会重新变回初始化状态
+
+### vuex中的state有什么特性？
+
+- vuex就是一个仓库，其中`state`就是数据源存放地
+- `state`里面存放的数据是响应式的，`Vue`组件从`store`中读取数据，若是store中的数据改变，则依赖这个数据的组件都会更新数据
+- 可以通过`mapState`把全局的`state`和`getters`映射到当前组件的`computed`计算属性中
+
+### vuex中的getters有什么特性？
+
+
 
 ## 相关链接
 
